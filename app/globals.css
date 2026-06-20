@@ -1,26 +1,164 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
+/* ── Design Tokens ────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --color-acid-lime: #e4f222;
+  --color-indigo:    #5e6ad2;
+  --color-emerald:   #27a644;
+  --color-crimson:   #eb5757;
+  --color-cyan:      #02b8cc;
+
+  /* Tailwind generated utility support for shadcn components */
+  --color-border: var(--c-border);
+  --color-input: var(--c-border-2);
+  --color-ring: var(--ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── DARK theme (default) ─────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --c-bg:       #08090a;
+  --c-surface:  #0f1011;
+  --c-elevated: #161718;
+  --c-overlay:  #23252a;
+  --c-hover:    #2e3035;
+
+  /* Borders */
+  --c-border:   #23252a;
+  --c-border-2: #383b3f;
+
+  /* Text */
+  --c-text:     #f7f8f8;
+  --c-text-2:   #8a8f98;
+  --c-text-3:   #62666d;
+  --c-text-4:   #383b3f;
+
+  /* Accent */
+  --c-accent:    #e4f222;
+  --c-accent-fg: #08090a;
+
+  /* shadcn compat */
+  --background: var(--c-bg);
+  --foreground: var(--c-text);
+  --card: var(--c-surface);
+  --card-foreground: var(--c-text);
+  --popover: var(--c-elevated);
+  --popover-foreground: var(--c-text);
+  --primary: var(--c-accent);
+  --primary-foreground: var(--c-accent-fg);
+  --secondary: var(--c-elevated);
+  --secondary-foreground: var(--c-text-2);
+  --muted: var(--c-overlay);
+  --muted-foreground: var(--c-text-2);
+  --accent: var(--c-overlay);
+  --accent-foreground: var(--c-text);
+  --destructive: #eb5757;
+  --border: var(--c-border);
+  --input: var(--c-border-2);
+  --ring: #5e6ad2;
+  --radius: 6px;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #23252a;
+  --scrollbar-hover: #383b3f;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── LIGHT theme ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg:       #ffffff;   /* Chalk - canvas */
+  --c-surface:  #ffffff;   /* Chalk - card/nav */
+  --c-elevated: #f2f2f2;   /* Mist - sub-surface */
+  --c-overlay:  #f2f2f2;   /* Mist */
+  --c-hover:    #f2f2f2;   /* Mist */
+
+  --c-border:   #e5e5e5;   /* Hairline border */
+  --c-border-2: #b9b9b9;   /* Smoke border */
+
+  --c-text:     #000000;   /* Pure Black - default ink */
+  --c-text-2:   #0a0a0a;   /* Graphite - secondary body/labels */
+  --c-text-3:   #737373;   /* Concrete - muted/placeholders */
+  --c-text-4:   #a1a1a1;   /* Ash - disabled / low contrast */
+
+  --c-accent:    #0a0a0a;   /* Pure black primary buttons */
+  --c-accent-fg: #ffffff;   /* White text on primary buttons */
+
+  /* shadcn compat */
+  --background: var(--c-bg);
+  --foreground: var(--c-text);
+  --card: var(--c-surface);
+  --card-foreground: var(--c-text);
+  --popover: var(--c-surface);
+  --popover-foreground: var(--c-text);
+  --primary: var(--c-accent);
+  --primary-foreground: var(--c-accent-fg);
+  --secondary: var(--c-elevated);
+  --secondary-foreground: var(--c-text-2);
+  --muted: var(--c-overlay);
+  --muted-foreground: var(--c-text-3);
+  --accent: var(--c-overlay);
+  --accent-foreground: var(--c-text);
+  --destructive: #eb5757;
+  --border: var(--c-border);
+  --input: var(--c-border);
+  --ring: #0a0a0a;
+
+  --scrollbar-thumb: #a1a1a1;
+  --scrollbar-hover: #737373;
 }
+
+/* ── Base ─────────────────────────────────────────────────────── */
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { @apply h-full antialiased; font-feature-settings: "cv01" on, "ss03" on; font-size: 12px; }
+  body { @apply h-full overflow-hidden text-[12px]; background: var(--c-bg); color: var(--c-text); font-family: var(--font-sans); font-size: 12px; }
+  input::placeholder, textarea::placeholder { color: var(--c-text-3); opacity: 1; }
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in-up 0.18s ease both;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+/* ── Utility helpers using CSS vars ───────────────────────────── */
+.bg-vena-base     { background: var(--c-bg); }
+.bg-vena-surface  { background: var(--c-surface); }
+.bg-vena-elevated { background: var(--c-elevated); }
+.bg-vena-overlay  { background: var(--c-overlay); }
+.border-vena      { border-color: var(--c-border); }
+.border-vena-2    { border-color: var(--c-border-2); }
+.text-vena        { color: var(--c-text); }
+.text-vena-2      { color: var(--c-text-2); }
+.text-vena-3      { color: var(--c-text-3); }
+.text-vena-4      { color: var(--c-text-4); }

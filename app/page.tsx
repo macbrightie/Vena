@@ -1,65 +1,443 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import React, { useState, useEffect } from "react"
+import { ResearchPanel } from "@/components/research/research-panel"
+import { PostEditor } from "@/components/editor/post-editor"
+import { LinkedInPreview } from "@/components/preview/linkedin-preview"
+import { VaultManager } from "@/components/post-vault/vault-manager"
+import { IdeaPlanner } from "@/components/planner/idea-planner"
+import { useTheme } from "@/lib/theme"
+import {
+  PenLine as PenLineIcon,
+  Search as SearchIcon,
+  Database,
+  Settings,
+  Sun,
+  Moon,
+  Trash2,
+  Lightbulb,
+} from "lucide-react"
+import type { LinkedInPost, ResearchResult } from "@/types"
+
+type ActiveTab = "research" | "generate" | "vault" | "planner"
+
+export default function VenaApp() {
+  const { theme, toggle: toggleTheme } = useTheme()
+  const [previewContent, setPreviewContent] = useState("")
+  const [currentResearch, setCurrentResearch] = useState<{
+    synthesis: string
+    sources: ResearchResult[]
+  } | null>(null)
+  const [activeTab, setActiveTab] = useState<ActiveTab>("research")
+  const [referencePost, setReferencePost] = useState<LinkedInPost | null>(null)
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop")
+  const [activeResearchQuery, setActiveResearchQuery] = useState("")
+  const [activeWriteTopic, setActiveWriteTopic] = useState("")
+
+  const handleSendToResearch = (query: string) => {
+    setActiveResearchQuery(query)
+    setActiveTab("research")
+  }
+
+  const handleSendToWrite = (topic: string) => {
+    setActiveWriteTopic(topic)
+    setActiveTab("generate")
+  }
+
+  interface ResearchHistoryItem {
+    id: string
+    topic: string
+    synthesis: string
+    sources: ResearchResult[]
+    timestamp: string
+  }
+
+  const [researchHistory, setResearchHistory] = useState<ResearchHistoryItem[]>([])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("vena_research_history")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const timer = setTimeout(() => {
+          setResearchHistory(parsed)
+        }, 0)
+        return () => clearTimeout(timer)
+      }
+    } catch (err) {
+      console.error("Failed to load research history:", err)
+    }
+  }, [])
+
+  const handleResearchSelected = (
+    res: { synthesis: string; sources: ResearchResult[] } | null,
+    query?: string
+  ) => {
+    setCurrentResearch(res)
+    if (res && query) {
+      setResearchHistory((prev) => {
+        const filtered = prev.filter((item) => item.topic.toLowerCase() !== query.toLowerCase())
+        const newItem: ResearchHistoryItem = {
+          id: `res-${Date.now()}`,
+          topic: query,
+          synthesis: res.synthesis,
+          sources: res.sources,
+          timestamp: new Date().toISOString(),
+        }
+        const next = [newItem, ...filtered].slice(0, 20)
+        localStorage.setItem("vena_research_history", JSON.stringify(next))
+        return next
+      })
+    }
+  }
+
+  const handleDeleteHistory = (id: string) => {
+    setResearchHistory((prev) => {
+      const next = prev.filter((item) => item.id !== id)
+      localStorage.setItem("vena_research_history", JSON.stringify(next))
+      return next
+    })
+  }
+
+  const handleWriteLikeThis = (post: LinkedInPost) => {
+    setReferencePost(post)
+    setActiveTab("generate")
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div
+      className="flex h-screen w-screen overflow-hidden"
+      style={{ background: "var(--c-bg)", color: "var(--c-text)" }}
+    >
+      {/* ── SIDEBAR ─────────────────────────────────────────── */}
+      <aside
+        className="flex flex-col w-[188px] shrink-0 h-full select-none"
+        style={{ background: "var(--c-surface)", borderRight: "1px solid var(--c-border)" }}
+      >
+        {/* Logo */}
+        <div className="px-4 pt-5 pb-7 flex items-center gap-2.5">
+          <div
+            className="w-6 h-6 rounded-[4px] flex items-center justify-center shrink-0"
+            style={{ background: "var(--c-accent)" }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <PenLineIcon className="w-3.5 h-3.5" style={{ color: "var(--c-accent-fg)" }} strokeWidth={2.5} />
+          </div>
+          <span className="font-semibold text-[15px] tracking-[-0.3px]" style={{ color: "var(--c-text)" }}>
+            Vena
+          </span>
+        </div>
+
+        <nav className="flex-1 px-2 space-y-0.5">
+          <NavItem icon={SearchIcon}   label="Research"    active={activeTab === "research"} onClick={() => setActiveTab("research")} />
+          <NavItem icon={PenLineIcon}  label="Write"       active={activeTab === "generate"} onClick={() => setActiveTab("generate")} />
+          <NavItem icon={Lightbulb}    label="Idea Planner" active={activeTab === "planner"}   onClick={() => setActiveTab("planner")} />
+          <NavItem icon={Database}     label="Style Vault" active={activeTab === "vault"}    onClick={() => setActiveTab("vault")} />
+        </nav>
+
+        <div
+          className="px-2 pb-4 pt-3 space-y-0.5"
+          style={{ borderTop: "1px solid var(--c-border)" }}
+        >
+          <NavItem icon={Settings} label="Settings" active={false} onClick={() => {}} />
+        </div>
+      </aside>
+
+      {/* ── MAIN ────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+
+        {/* Top bar */}
+        <header
+          className="h-[52px] shrink-0 flex items-center justify-between px-5"
+          style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-surface)" }}
+        >
+          <div className="flex items-center gap-1">
+            {(["research", "generate", "planner", "vault"] as ActiveTab[]).map((tab) => {
+              const labels: Record<ActiveTab, string> = {
+                research: "Research",
+                generate: "Write Post",
+                planner: "Idea Planner",
+                vault: "Style Vault",
+              }
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className="px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-all cursor-pointer"
+                  style={{
+                    background: activeTab === tab ? "var(--c-overlay)" : "transparent",
+                    color: activeTab === tab ? "var(--c-text)" : "var(--c-text-3)",
+                  }}
+                >
+                  {labels[tab]}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentResearch && activeTab === "generate" && (
+              <span
+                className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
+                style={{ color: "#27a644", background: "rgba(39,166,68,0.10)", border: "1px solid rgba(39,166,68,0.2)" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#27a644] animate-pulse" />
+                Research active
+              </span>
+            )}
+            {referencePost && activeTab === "generate" && (
+              <span
+                className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
+                style={{ color: "#5e6ad2", background: "rgba(94,106,210,0.10)", border: "1px solid rgba(94,106,210,0.2)" }}
+              >
+                <PenLineIcon className="w-3 h-3" />
+                Reference active
+                <button
+                  onClick={() => setReferencePost(null)}
+                  className="ml-1 opacity-60 hover:opacity-100 cursor-pointer"
+                >×</button>
+              </span>
+            )}
+
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-[6px] cursor-pointer transition-all"
+              style={{ color: "var(--c-text-3)" }}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--c-overlay)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold cursor-pointer"
+              style={{
+                background: "var(--c-overlay)",
+                border: "1px solid var(--c-border-2)",
+                color: "var(--c-text-2)",
+              }}
+            >
+              YO
+            </div>
+          </div>
+        </header>
+
+        {/* ── Page body ─────────────────────────────────────── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+          {/* Research */}
+          {activeTab === "research" && (
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Side: Main Research panel */}
+              <div className="flex-1 overflow-y-auto flex flex-col">
+                <div className="px-6 py-5 shrink-0" style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-surface)" }}>
+                  <h1 className="text-[15px] font-semibold tracking-[-0.2px]" style={{ color: "var(--c-text)" }}>
+                    Web Research
+                  </h1>
+                  <p className="text-[12px] mt-0.5" style={{ color: "var(--c-text-3)" }}>
+                    Pull insights from the web before you write
+                  </p>
+                </div>
+                <div className="p-6 flex-1 max-w-2xl w-full">
+                  <ResearchPanel
+                    onResearchSelected={handleResearchSelected}
+                    currentResearch={currentResearch}
+                    onSwitchToWrite={() => setActiveTab("generate")}
+                    initialInstruction={activeResearchQuery}
+                  />
+                </div>
+              </div>
+
+              {/* Right Side: History sidebar */}
+              <div
+                className="w-[280px] shrink-0 h-full border-l flex flex-col select-none"
+                style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}
+              >
+                <div className="px-4 py-4 border-b shrink-0" style={{ borderColor: "var(--c-border)" }}>
+                  <h2 className="text-[12px] font-bold uppercase tracking-wider" style={{ color: "var(--c-text)" }}>Research History</h2>
+                  <p className="text-[10px] mt-0.5" style={{ color: "var(--c-text-3)" }}>Select past search to restore results</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {researchHistory.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-[11px]" style={{ color: "var(--c-text-3)" }}>No past research runs.</p>
+                    </div>
+                  ) : (
+                    researchHistory.map((item) => {
+                      const isActive = currentResearch?.synthesis === item.synthesis
+                      return (
+                        <div
+                          key={item.id}
+                          className="group relative flex flex-col p-2.5 rounded-[6px] border cursor-pointer transition-all hover:border-neutral-400 dark:hover:border-neutral-600"
+                          style={{
+                            background: isActive ? "var(--c-overlay)" : "var(--c-elevated)",
+                            borderColor: isActive ? "var(--c-accent)" : "var(--c-border)",
+                          }}
+                          onClick={() => {
+                            setCurrentResearch({ synthesis: item.synthesis, sources: item.sources })
+                          }}
+                        >
+                          <span className="text-[12px] font-semibold line-clamp-2 pr-6 leading-normal" style={{ color: "var(--c-text)" }}>
+                            {item.topic}
+                          </span>
+                          <span className="text-[9px] mt-1" style={{ color: "var(--c-text-3)" }}>
+                            {new Date(item.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteHistory(item.id)
+                            }}
+                            className="absolute right-2 top-2.5 opacity-0 group-hover:opacity-100 p-1 rounded transition-all cursor-pointer text-stone-400 hover:text-red-500"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Write — 50/50 */}
+          {activeTab === "generate" && (
+            <>
+              <div
+                className="flex-1 min-w-0 flex flex-col overflow-hidden"
+                style={{ borderRight: "1px solid var(--c-border)" }}
+              >
+                <PostEditor
+                  onDraftChange={() => {}}
+                  onPreviewChange={setPreviewContent}
+                  currentResearch={currentResearch}
+                  onResearchChange={(res, query) => handleResearchSelected(res, query)}
+                  referencePost={referencePost}
+                  onClearReference={() => setReferencePost(null)}
+                  initialTopic={activeWriteTopic}
+                />
+              </div>
+              <div
+                className="flex-1 min-w-0 flex flex-col overflow-hidden"
+                style={{ background: "var(--c-surface)" }}
+              >
+                <div
+                  className="px-5 py-2.5 shrink-0 flex items-center justify-between"
+                  style={{ borderBottom: "1px solid var(--c-border)" }}
+                >
+                  <div>
+                    <p className="text-[13px] font-semibold tracking-[-0.2px]" style={{ color: "var(--c-text)" }}>
+                      LinkedIn Preview
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "var(--c-text-3)" }}>
+                      {previewContent ? "Hover a chat version to compare" : "Generate a post to see the preview"}
+                    </p>
+                  </div>
+                  
+                  {/* Desktop / Mobile switcher tabs */}
+                  <div
+                    className="flex gap-1 p-0.5 rounded-[6px]"
+                    style={{ background: "var(--c-elevated)", border: "1px solid var(--c-border)" }}
+                  >
+                    {(["desktop", "mobile"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setPreviewMode(mode)}
+                        className="px-3 py-1 rounded-[4px] text-[11px] font-semibold transition-all cursor-pointer"
+                        style={{
+                          background: previewMode === mode ? "var(--c-surface)" : "transparent",
+                          color: previewMode === mode ? "var(--c-text)" : "var(--c-text-3)",
+                          boxShadow: previewMode === mode ? "rgba(0,0,0,0.1) 0px 1px 3px" : "none",
+                        }}
+                      >
+                        {mode === "desktop" ? "Desktop" : "Mobile"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5">
+                  <LinkedInPreview content={previewContent} viewMode={previewMode} />
+                  {!previewContent && (
+                    <div
+                      className="mt-5 rounded-[12px] p-4"
+                      style={{ border: "1px solid var(--c-border)", background: "var(--c-elevated)" }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-widest mb-3"
+                        style={{ color: "var(--c-text-3)" }}
+                      >
+                        Writing Tips
+                      </p>
+                      <ul className="space-y-2.5">
+                        {[
+                          "Start with a bold, specific claim",
+                          "One blank line between each paragraph",
+                          "Under 1,200 chars for best reach",
+                          "End with a question or clear CTA",
+                        ].map((tip, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2 text-[12px] leading-relaxed"
+                            style={{ color: "var(--c-text-2)" }}
+                          >
+                            <span className="font-bold shrink-0" style={{ color: "var(--c-accent)" }}>·</span>
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Vault — full page */}
+          {activeTab === "vault" && (
+            <VaultManager onWriteLikeThis={handleWriteLikeThis} />
+          )}
+
+          {/* Idea Planner — full page */}
+          {activeTab === "planner" && (
+            <IdeaPlanner
+              onSendToResearch={handleSendToResearch}
+              onSendToWrite={handleSendToWrite}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          )}
         </div>
-      </main>
+      </div>
     </div>
-  );
+  )
+}
+
+function NavItem({
+  icon: Icon, label, active, onClick,
+}: {
+  icon: React.ElementType
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[6px] text-[13px] font-medium transition-all cursor-pointer"
+      style={{
+        background: active ? "var(--c-overlay)" : "transparent",
+        color: active ? "var(--c-text)" : "var(--c-text-3)",
+      }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--c-elevated)" }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = active ? "var(--c-overlay)" : "transparent" }}
+    >
+      <Icon
+        className="w-4 h-4 shrink-0"
+        style={{ color: active ? "var(--c-accent)" : "inherit" }}
+        strokeWidth={active ? 2.5 : 2}
+      />
+      {label}
+    </button>
+  )
 }
