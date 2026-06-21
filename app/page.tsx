@@ -35,14 +35,19 @@ export default function VenaApp() {
   const [activeResearchQuery, setActiveResearchQuery] = useState("")
   const [activeWriteTopic, setActiveWriteTopic] = useState("")
 
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab)
+    localStorage.setItem("vena_active_tab", tab)
+  }
+
   const handleSendToResearch = (query: string) => {
     setActiveResearchQuery(query)
-    setActiveTab("research")
+    handleTabChange("research")
   }
 
   const handleSendToWrite = (topic: string) => {
     setActiveWriteTopic(topic)
-    setActiveTab("generate")
+    handleTabChange("generate")
   }
 
   interface ResearchHistoryItem {
@@ -67,6 +72,20 @@ export default function VenaApp() {
       }
     } catch (err) {
       console.error("Failed to load research history:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const storedTab = localStorage.getItem("vena_active_tab") as ActiveTab | null
+      if (storedTab && ["research", "generate", "planner", "vault"].includes(storedTab)) {
+        const timer = setTimeout(() => {
+          setActiveTab(storedTab)
+        }, 0)
+        return () => clearTimeout(timer)
+      }
+    } catch (err) {
+      console.error("Failed to load active tab:", err)
     }
   }, [])
 
@@ -102,7 +121,7 @@ export default function VenaApp() {
 
   const handleWriteLikeThis = (post: LinkedInPost) => {
     setReferencePost(post)
-    setActiveTab("generate")
+    handleTabChange("generate")
   }
 
   return (
@@ -129,10 +148,10 @@ export default function VenaApp() {
         </div>
 
         <nav className="flex-1 px-2 space-y-0.5">
-          <NavItem icon={SearchIcon}   label="Research"    active={activeTab === "research"} onClick={() => setActiveTab("research")} />
-          <NavItem icon={PenLineIcon}  label="Write"       active={activeTab === "generate"} onClick={() => setActiveTab("generate")} />
-          <NavItem icon={Lightbulb}    label="Idea Planner" active={activeTab === "planner"}   onClick={() => setActiveTab("planner")} />
-          <NavItem icon={Database}     label="Style Vault" active={activeTab === "vault"}    onClick={() => setActiveTab("vault")} />
+          <NavItem icon={SearchIcon}   label="Research"    active={activeTab === "research"} onClick={() => handleTabChange("research")} />
+          <NavItem icon={PenLineIcon}  label="Write"       active={activeTab === "generate"} onClick={() => handleTabChange("generate")} />
+          <NavItem icon={Lightbulb}    label="Idea Planner" active={activeTab === "planner"}   onClick={() => handleTabChange("planner")} />
+          <NavItem icon={Database}     label="Style Vault" active={activeTab === "vault"}    onClick={() => handleTabChange("vault")} />
         </nav>
 
         <div
@@ -176,7 +195,7 @@ export default function VenaApp() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => handleTabChange(tab)}
                   className="px-3 py-1.5 rounded-[6px] text-[13px] font-medium transition-all cursor-pointer"
                   style={{
                     background: activeTab === tab ? "var(--c-overlay)" : "transparent",
@@ -457,10 +476,10 @@ export default function VenaApp() {
           className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 shrink-0 z-50 items-center justify-around px-2 border-t"
           style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}
         >
-          <MobileNavItem icon={SearchIcon} label="Research" active={activeTab === "research"} onClick={() => setActiveTab("research")} />
-          <MobileNavItem icon={PenLineIcon} label="Write" active={activeTab === "generate"} onClick={() => setActiveTab("generate")} />
-          <MobileNavItem icon={Lightbulb} label="Planner" active={activeTab === "planner"} onClick={() => setActiveTab("planner")} />
-          <MobileNavItem icon={Database} label="Vault" active={activeTab === "vault"} onClick={() => setActiveTab("vault")} />
+          <MobileNavItem icon={SearchIcon} label="Research" active={activeTab === "research"} onClick={() => handleTabChange("research")} />
+          <MobileNavItem icon={PenLineIcon} label="Write" active={activeTab === "generate"} onClick={() => handleTabChange("generate")} />
+          <MobileNavItem icon={Lightbulb} label="Planner" active={activeTab === "planner"} onClick={() => handleTabChange("planner")} />
+          <MobileNavItem icon={Database} label="Vault" active={activeTab === "vault"} onClick={() => handleTabChange("vault")} />
         </nav>
       </div>
     </div>
