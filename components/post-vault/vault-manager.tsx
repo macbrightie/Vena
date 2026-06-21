@@ -790,7 +790,10 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
           }),
         })
         const data = await res.json()
-        if (res.ok && data.post) {
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to save post to database")
+        }
+        if (data.post) {
           // Replace the local-ID post with the real DB post having the uuid
           setPosts(prev => prev.map(p => p.id === post.id ? data.post : p))
           const currentStored = localStorage.getItem("vena_post_vault")
@@ -800,16 +803,41 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
             localStorage.setItem("vena_post_vault", JSON.stringify(updatedStored))
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to save post to database:", err)
+        setPostError(err instanceof Error ? err.message : "Failed to save post to database.")
+        // Revert local optimistic update since database write failed
+        setPosts(posts)
+        localStorage.setItem("vena_post_vault", JSON.stringify(posts))
+        setIsSaving(false)
+        return
       }
     }
     setNewUrl(""); setNewContent(""); setNewTopic(""); setNewAuthor("")
     setIsSaving(false)
   }
 
-  const handleDeletePost = (id: string) => {
+  const handleDeletePost = async (id: string) => {
     setIsDeletingId(id)
+    if (!isLocalMode) {
+      try {
+        const res = await fetch("/api/posts", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to delete post from database")
+        }
+      } catch (err: unknown) {
+        console.error("Failed to delete post on server:", err)
+        alert(err instanceof Error ? err.message : "Failed to delete post.")
+        setIsDeletingId(null)
+        return
+      }
+    }
+
     const updated = posts.filter(p => p.id !== id)
     localStorage.setItem("vena_post_vault", JSON.stringify(updated))
     setPosts(updated)
@@ -817,19 +845,27 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
   }
 
   const handleUpdatePostCategory = async (id: string, category: PostCategory) => {
+    const originalPosts = [...posts]
     const updated = posts.map(p => p.id === id ? { ...p, category } : p)
-    localStorage.setItem("vena_post_vault", JSON.stringify(updated))
     setPosts(updated)
+    localStorage.setItem("vena_post_vault", JSON.stringify(updated))
 
     if (!isLocalMode) {
       try {
-        await fetch("/api/posts", {
+        const res = await fetch("/api/posts", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, category }),
         })
-      } catch (err) {
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to update category on server")
+        }
+      } catch (err: unknown) {
         console.error("Failed to update post category on server:", err)
+        alert(err instanceof Error ? err.message : "Failed to update category.")
+        setPosts(originalPosts)
+        localStorage.setItem("vena_post_vault", JSON.stringify(originalPosts))
       }
     }
   }
