@@ -933,12 +933,12 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
 
         {/* ═══ POST WALL ════════════════════════════════════ */}
         {activeTab === "wall" && (
-          <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
 
             {/* Left: add form */}
             <div
-              className="w-[300px] shrink-0 flex flex-col overflow-y-auto"
-              style={{ borderRight: "1px solid var(--c-border)", background: "var(--c-surface)" }}
+              className="w-full md:w-[300px] shrink-0 flex flex-col overflow-y-auto border-b md:border-b-0 md:border-r"
+              style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}
             >
               {/* Import Mode Switcher */}
               <div className="px-5 pt-5 pb-2 shrink-0">
@@ -1253,7 +1253,7 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-12">
                     {filtered.map((post) => (
                       <PostCard
                         key={post.id}
@@ -1273,11 +1273,11 @@ export function VaultManager({ onWriteLikeThis }: VaultManagerProps) {
 
         {/* ═══ MY VOICE ══════════════════════════════════════ */}
         {activeTab === "voice" && (
-          <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
             {/* Left: upload */}
             <div
-              className="w-[320px] shrink-0 overflow-y-auto p-5 space-y-4"
-              style={{ borderRight: "1px solid var(--c-border)", background: "var(--c-surface)" }}
+              className="w-full md:w-[320px] shrink-0 overflow-y-auto p-5 space-y-4 border-b md:border-b-0 md:border-r"
+              style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}
             >
               <div>
                 <p className="text-[12px] font-semibold" style={{ color: "var(--c-text)" }}>Upload a document</p>

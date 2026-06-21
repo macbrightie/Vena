@@ -29,6 +29,7 @@ export default function VenaApp() {
     sources: ResearchResult[]
   } | null>(null)
   const [activeTab, setActiveTab] = useState<ActiveTab>("research")
+  const [writeSubTab, setWriteSubTab] = useState<"editor" | "chat" | "preview">("editor")
   const [referencePost, setReferencePost] = useState<LinkedInPost | null>(null)
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop")
   const [activeResearchQuery, setActiveResearchQuery] = useState("")
@@ -109,9 +110,9 @@ export default function VenaApp() {
       className="flex h-screen w-screen overflow-hidden"
       style={{ background: "var(--c-bg)", color: "var(--c-text)" }}
     >
-      {/* ── SIDEBAR ─────────────────────────────────────────── */}
+      {/* ── SIDEBAR (Hidden on mobile) ─────────────────────────── */}
       <aside
-        className="flex flex-col w-[188px] shrink-0 h-full select-none"
+        className="hidden md:flex flex-col w-[188px] shrink-0 h-full select-none"
         style={{ background: "var(--c-surface)", borderRight: "1px solid var(--c-border)" }}
       >
         {/* Logo */}
@@ -143,14 +144,28 @@ export default function VenaApp() {
       </aside>
 
       {/* ── MAIN ────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden relative">
 
         {/* Top bar */}
         <header
           className="h-[52px] shrink-0 flex items-center justify-between px-5"
           style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-surface)" }}
         >
-          <div className="flex items-center gap-1">
+          {/* Logo showing only on mobile */}
+          <div className="flex md:hidden items-center gap-2">
+            <div
+              className="w-5.5 h-5.5 rounded-[4px] flex items-center justify-center shrink-0"
+              style={{ background: "var(--c-accent)" }}
+            >
+              <PenLineIcon className="w-3.5 h-3.5" style={{ color: "var(--c-accent-fg)" }} strokeWidth={2.5} />
+            </div>
+            <span className="font-bold text-[14px] tracking-[-0.3px]" style={{ color: "var(--c-text)" }}>
+              Vena
+            </span>
+          </div>
+
+          {/* Tab buttons showing only on desktop */}
+          <div className="hidden md:flex items-center gap-1">
             {(["research", "generate", "planner", "vault"] as ActiveTab[]).map((tab) => {
               const labels: Record<ActiveTab, string> = {
                 research: "Research",
@@ -177,7 +192,7 @@ export default function VenaApp() {
           <div className="flex items-center gap-2">
             {currentResearch && activeTab === "generate" && (
               <span
-                className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
+                className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
                 style={{ color: "#27a644", background: "rgba(39,166,68,0.10)", border: "1px solid rgba(39,166,68,0.2)" }}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#27a644] animate-pulse" />
@@ -186,7 +201,7 @@ export default function VenaApp() {
             )}
             {referencePost && activeTab === "generate" && (
               <span
-                className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
+                className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-[6px]"
                 style={{ color: "#5e6ad2", background: "rgba(94,106,210,0.10)", border: "1px solid rgba(94,106,210,0.2)" }}
               >
                 <PenLineIcon className="w-3 h-3" />
@@ -223,12 +238,12 @@ export default function VenaApp() {
           </div>
         </header>
 
-        {/* ── Page body ─────────────────────────────────────── */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* ── Page body (Added mobile pb padding space for mobile nav) ── */}
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden pb-16 md:pb-0">
 
           {/* Research */}
           {activeTab === "research" && (
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
               {/* Left Side: Main Research panel */}
               <div className="flex-1 overflow-y-auto flex flex-col">
                 <div className="px-6 py-5 shrink-0" style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-surface)" }}>
@@ -251,7 +266,7 @@ export default function VenaApp() {
 
               {/* Right Side: History sidebar */}
               <div
-                className="w-[280px] shrink-0 h-full border-l flex flex-col select-none"
+                className="w-full md:w-[280px] shrink-0 h-auto md:h-full border-t md:border-t-0 md:border-l flex flex-col select-none"
                 style={{ borderColor: "var(--c-border)", background: "var(--c-surface)" }}
               >
                 <div className="px-4 py-4 border-b shrink-0" style={{ borderColor: "var(--c-border)" }}>
@@ -303,11 +318,34 @@ export default function VenaApp() {
             </div>
           )}
 
-          {/* Write — 50/50 */}
+          {/* Write — 50/50 on desktop, sub-tab panels on mobile */}
           {activeTab === "generate" && (
-            <>
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+              {/* Segmented Switcher for Mobile */}
+              <div className="flex md:hidden items-center justify-center p-2 border-b shrink-0" style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}>
+                <div className="flex bg-[var(--c-elevated)] border border-[var(--c-border)] rounded-[8px] p-0.5 w-full max-w-sm">
+                  {(["editor", "chat", "preview"] as const).map((subTab) => (
+                    <button
+                      key={subTab}
+                      onClick={() => setWriteSubTab(subTab)}
+                      className="flex-1 text-center py-1.5 rounded-[6px] text-[11px] font-semibold transition-all capitalize cursor-pointer animate-fade-in"
+                      style={{
+                        background: writeSubTab === subTab ? "var(--c-surface)" : "transparent",
+                        color: writeSubTab === subTab ? "var(--c-text)" : "var(--c-text-3)",
+                        boxShadow: writeSubTab === subTab ? "rgba(0,0,0,0.1) 0px 1px 3px" : "none",
+                      }}
+                    >
+                      {subTab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Editor Workspace Column */}
               <div
-                className="flex-1 min-w-0 flex flex-col overflow-hidden"
+                className={`flex-col overflow-hidden ${
+                  writeSubTab === "preview" ? "hidden md:flex" : "flex flex-1 min-w-0"
+                }`}
                 style={{ borderRight: "1px solid var(--c-border)" }}
               >
                 <PostEditor
@@ -318,10 +356,15 @@ export default function VenaApp() {
                   referencePost={referencePost}
                   onClearReference={() => setReferencePost(null)}
                   initialTopic={activeWriteTopic}
+                  activeSubTab={writeSubTab}
                 />
               </div>
+
+              {/* Preview Column */}
               <div
-                className="flex-1 min-w-0 flex flex-col overflow-hidden"
+                className={`flex-col overflow-hidden ${
+                  writeSubTab === "preview" ? "flex flex-1 min-w-0" : "hidden md:flex"
+                }`}
                 style={{ background: "var(--c-surface)" }}
               >
                 <div
@@ -392,7 +435,7 @@ export default function VenaApp() {
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Vault — full page */}
@@ -408,6 +451,17 @@ export default function VenaApp() {
             />
           )}
         </div>
+
+        {/* ── MOBILE BOTTOM NAVIGATION ────────────────────────── */}
+        <nav
+          className="flex md:hidden fixed bottom-0 left-0 right-0 h-16 shrink-0 z-50 items-center justify-around px-2 border-t"
+          style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}
+        >
+          <MobileNavItem icon={SearchIcon} label="Research" active={activeTab === "research"} onClick={() => setActiveTab("research")} />
+          <MobileNavItem icon={PenLineIcon} label="Write" active={activeTab === "generate"} onClick={() => setActiveTab("generate")} />
+          <MobileNavItem icon={Lightbulb} label="Planner" active={activeTab === "planner"} onClick={() => setActiveTab("planner")} />
+          <MobileNavItem icon={Database} label="Vault" active={activeTab === "vault"} onClick={() => setActiveTab("vault")} />
+        </nav>
       </div>
     </div>
   )
@@ -438,6 +492,32 @@ function NavItem({
         strokeWidth={active ? 2.5 : 2}
       />
       {label}
+    </button>
+  )
+}
+
+function MobileNavItem({
+  icon: Icon, label, active, onClick,
+}: {
+  icon: React.ElementType
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-1 flex-1 h-full py-1 text-center cursor-pointer transition-all"
+      style={{
+        color: active ? "var(--c-accent)" : "var(--c-text-3)",
+      }}
+    >
+      <Icon
+        className="w-5 h-5 shrink-0"
+        style={{ color: active ? "var(--c-accent)" : "inherit" }}
+        strokeWidth={active ? 2.5 : 2}
+      />
+      <span className="text-[10px] font-semibold tracking-[-0.2px]">{label}</span>
     </button>
   )
 }

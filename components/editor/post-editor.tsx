@@ -40,6 +40,7 @@ interface PostEditorProps {
   referencePost?: LinkedInPost | null
   onClearReference?: () => void
   initialTopic?: string
+  activeSubTab?: "editor" | "chat" | "preview"
 }
 
 const DEMO_ANGLES: Angle[] = [
@@ -184,6 +185,7 @@ export function PostEditor({
   referencePost,
   onClearReference,
   initialTopic,
+  activeSubTab,
 }: PostEditorProps) {
   const [stage, setStage] = useState<Stage>("input")
   const [topic, setTopic] = useState("")
@@ -1093,7 +1095,10 @@ export function PostEditor({
       ) : (
         <>
           {/* ── Zone 1: Textarea + version strip ─────────────── */}
-          <div className="flex flex-col" style={{ flex: "0 0 58%" }}>
+          <div
+            className={`flex-col ${activeSubTab === "chat" ? "hidden md:flex" : "flex flex-1 md:flex-initial"}`}
+            style={activeSubTab ? { flex: "1 1 auto" } : { flex: "0 0 58%" }}
+          >
 
             {/* "Not on latest" banner */}
             {!isLatestVersion && versions.length > 1 && (
@@ -1154,7 +1159,10 @@ export function PostEditor({
           </div>
 
           {/* ── Zone 2: Chat ──────────────────────────────────── */}
-          <div className="flex flex-col min-h-0" style={{ flex: "1 1 42%" }}>
+          <div
+            className={`flex-col min-h-0 ${activeSubTab === "editor" ? "hidden md:flex" : "flex flex-1 md:flex-initial"}`}
+            style={activeSubTab ? { flex: "1 1 auto" } : { flex: "1 1 42%" }}
+          >
             <RefineChat
               messages={chatMessages}
               onSend={handleSendRefinement}
