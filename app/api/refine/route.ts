@@ -73,9 +73,24 @@ ${playbookContent}
       `\nCHANGE REQUEST: ${instruction}`,
       `\nINSTRUCTIONS FOR REVISION:
 1/ Analyze the change request.
-2/ If it refers to changing or improving the hook, CTA, or rehook, search the provided PLAYBOOK guides for the specific rules (e.g., Movie Preview hook structure: Cast/Setting/Genre, Story, Conflict, and Director's Cut; or bucket-based CTA formats) and apply them strictly.
+2/ If it refers to changing or improving the hook, CTA, or rehook:
+   - Search the provided PLAYBOOK guides for the specific rules (e.g., Movie Preview hook structure: Cast/Setting/Genre, Story, Conflict, and Director's Cut; or bucket-based CTA formats) and apply them strictly.
+   - You MUST generate exactly 3 distinct variations of the post applying different styles/frameworks from the PLAYBOOK for that specific hook/CTA/rehook.
+   - Return them inside a "variations" JSON array of objects, each containing:
+     * "label": A short, clear label explaining the playbook style used (e.g. "Option 1: Movie Preview Hook", "Option 2: Counter-Intuitive Hook").
+     * "content": The FULL, complete updated post text with that specific option applied.
 3/ Study "MY VAULT POSTS" to match the user's natural pacing, length, formatting, and style.
-4/ Maintain a direct, warm, active, and personal tone. Return the revised draft in the requested JSON structure.`,
+4/ Maintain a direct, warm, active, and personal tone.
+5/ Return a JSON object matching this schema:
+   {
+     "content": "the default or best version of the full post",
+     "summary": "a brief explanation of changes",
+     "variations": [
+       { "label": "Short label", "content": "Full post content" },
+       ...
+     ]
+   }
+   If the change request is NOT about a hook, CTA, or rehook, the "variations" field should be omitted or returned as an empty array.`,
     ].filter(Boolean).join("\n")
 
     const completion = await openai.chat.completions.create({
@@ -89,7 +104,11 @@ ${playbookContent}
     })
 
     const raw = completion.choices[0].message.content ?? "{}"
-    let result: { content: string; summary: string }
+    let result: {
+      content: string
+      summary: string
+      variations?: Array<{ label: string; content: string }>
+    }
 
     try {
       result = JSON.parse(raw)
@@ -100,6 +119,7 @@ ${playbookContent}
     return NextResponse.json({
       content: result.content ?? "",
       summary: result.summary ?? "Post updated",
+      variations: result.variations ?? null,
     })
   } catch (err) {
     console.error("[refine] error:", err)

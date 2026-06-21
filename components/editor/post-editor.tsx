@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useEffect } from "react"
+import React, { useState, useCallback, useEffect, useRef } from "react"
 import {
   Loader2, Sparkles, Hash, Copy, Check,
   AlertTriangle, ChevronLeft, ChevronRight, Star, PenLine as PenLineIcon,
@@ -189,6 +189,47 @@ export function PostEditor({
 }: PostEditorProps) {
   const [stage, setStage] = useState<Stage>("input")
   const [topic, setTopic] = useState("")
+  const [canvasWidth, setCanvasWidth] = useState(58)
+  const [isMobile, setIsMobile] = useState(false)
+  const isDraggingRef = useRef(false)
+  const editorContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  const handleCanvasResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!editorContainerRef.current) return
+    isDraggingRef.current = true
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+
+    const container = editorContainerRef.current
+    const containerRect = container.getBoundingClientRect()
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const relativeX = moveEvent.clientX - containerRect.left
+      const widthPct = (relativeX / containerRect.width) * 100
+      const clampedPct = Math.max(35, Math.min(80, widthPct))
+      setCanvasWidth(clampedPct)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+  }
 
   useEffect(() => {
     if (initialTopic && initialTopic !== topic) {
@@ -407,7 +448,7 @@ export function PostEditor({
 
   // ── Stage 1 → 2 ────────────────────────────────────────────
   const handleRunResearch = async (depth: "basic" | "deep") => {
-    if (!topic.trim()) return
+    if (!topic.trim()) return null
     setIsResearching(true)
     setError(null)
     setLocalResearch(null)
@@ -431,9 +472,11 @@ export function PostEditor({
       }
       setLocalResearch(newResearch)
       onResearchChange?.(newResearch, topic.trim())
+      return newResearch
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to run research."
       setError(message)
+      return null
     } finally {
       setIsResearching(false)
     }
@@ -471,10 +514,10 @@ export function PostEditor({
   }
 
   // ── Stage 2 → 3 ────────────────────────────────────────────
-  const handlePickAngle = useCallback(async (angle: Angle) => {
+  const handlePickAngle = useCallback(async (angle?: Angle, forcedResearchSources?: ResearchResult[]) => {
     const newId = "gen-" + (typeof window !== "undefined" ? window.crypto.randomUUID() : "ssr")
     setActiveGenerationId(newId)
-    setSelectedAngle(angle)
+    if (angle) setSelectedAngle(angle)
     setStage("writing")
     setIsGeneratingPost(true)
     setError(null)
@@ -482,7 +525,7 @@ export function PostEditor({
     setVersions([])
     setActiveVersionIdx(0)
 
-    const activeResearchSources = localResearch?.sources ?? currentResearch?.sources ?? []
+    const activeResearchSources = forcedResearchSources ?? localResearch?.sources ?? currentResearch?.sources ?? []
 
     let localVaultContent: string[] = []
     try {
@@ -498,13 +541,14 @@ export function PostEditor({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          topic: `${topic}: ${angle.title}`,
-          additionalContext: `Angle: ${angle.angle}. Approach: ${angle.summary}${notes ? `. Additional notes: ${notes}` : ""}`,
+          topic: angle ? `${topic}: ${angle.title}` : topic,
+          additionalContext: angle ? `Angle: ${angle.angle}. Approach: ${angle.summary}${notes ? `. Additional notes: ${notes}` : ""}` : notes,
           research: activeResearchSources,
           voiceContext: getVoiceContext(),
           referencePost: referencePost?.content,
           vaultPosts: localVaultContent,
         }),
+
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -576,10 +620,25 @@ export function PostEditor({
     setIsSending(true)
 
     try {
+      // Load local vault content fallback
+      let localVaultContent: string[] = []
+      try {
+        const stored = localStorage.getItem("vena_post_vault")
+        if (stored) {
+          const posts = JSON.parse(stored)
+          localVaultContent = posts.map((p: any) => p.content).filter(Boolean)
+        }
+      } catch {}
+
       const res = await fetch("/api/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentContent, instruction, voiceContext: getVoiceContext() }),
+        body: JSON.stringify({
+          currentContent,
+          instruction,
+          voiceContext: getVoiceContext(),
+          vaultPosts: localVaultContent,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -590,6 +649,7 @@ export function PostEditor({
         text: data.summary,
         snapshot: data.content,
         timestamp: new Date(),
+        variations: data.variations || undefined,
       }
       
       const newVerObj: DraftVersion = { content: data.content, label: refineLabel, createdAt: new Date() }
@@ -623,6 +683,7 @@ export function PostEditor({
             role: assistantMsg.role,
             text: assistantMsg.text,
             snapshot: assistantMsg.snapshot,
+            variations: assistantMsg.variations,
             timestamp: assistantMsg.timestamp.toISOString(),
           }]
           next[rIdx] = {
@@ -636,13 +697,34 @@ export function PostEditor({
         })
       }
     } catch {
-      const mockContent = currentContent + "\n\nSharing this because most people never make the switch. The ones who do? They don't look back.\n\nWhat shifted things for you?"
+      // Offline/Demo mock generator for visual feedback
+      const isHookOrCta = /hook|cta|intro|ending|rehook/i.test(instruction)
+      let mockVariations = undefined
+      if (isHookOrCta) {
+        mockVariations = [
+          {
+            label: "Option 1: Movie Preview Style",
+            content: `The hardest thing about building isn't the code.\n\nIt's showing up when the screen is blank.\n\nMost founders spend 90% of their time building and 10% on distribution.\n\n${currentContent}`
+          },
+          {
+            label: "Option 2: Pain-Point Opener",
+            content: `9 out of 10 SaaS founders fail for one reason:\n\nZero distribution.\n\nThey build in silence, hoping users will magically appear.\n\n${currentContent}`
+          },
+          {
+            label: "Option 3: Direct Contrast Style",
+            content: `Build it and they will come is a lie.\n\nBuild it and distribute it relentlessly is the truth.\n\n${currentContent}`
+          }
+        ]
+      }
+
+      const mockContent = mockVariations ? mockVariations[0].content : currentContent + "\n\nSharing this because most people never make the switch. The ones who do? They don't look back.\n\nWhat shifted things for you?"
       const assistantMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: "assistant",
         text: "Added a more personal CTA to the ending (demo mode)",
         snapshot: mockContent,
         timestamp: new Date(),
+        variations: mockVariations,
       }
       
       const newVerObj: DraftVersion = { content: mockContent, label: `${refineLabel} (demo)`, createdAt: new Date() }
@@ -676,6 +758,7 @@ export function PostEditor({
             role: assistantMsg.role,
             text: assistantMsg.text,
             snapshot: assistantMsg.snapshot,
+            variations: assistantMsg.variations,
             timestamp: assistantMsg.timestamp.toISOString(),
           }]
           next[rIdx] = {
@@ -693,8 +776,8 @@ export function PostEditor({
     }
   }, [activeDraft, chatMessages, onDraftChange, onPreviewChange, activeGenerationId, setGenerationRuns])
 
-  const handleRestore = (snapshot: string) => {
-    const restoreLabel = `Restored from chat`
+  const handleRestore = (snapshot: string, label?: string) => {
+    const restoreLabel = label ?? `Restored from chat`
     const newVerObj: DraftVersion = { content: snapshot, label: restoreLabel, createdAt: new Date() }
 
     setVersions((prev) => {
@@ -759,7 +842,7 @@ export function PostEditor({
               We&apos;ll generate 3 angles — pick the one that fits, then write the post.
             </p>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); handleGenerateAngles() }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); referencePost ? handlePickAngle() : handleGenerateAngles() }} className="space-y-4">
             <div>
               <label className="block text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--c-text-3)" }}>Topic *</label>
               <div className="relative">
@@ -786,25 +869,27 @@ export function PostEditor({
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--c-text-3)" }}>
-                Notes <span className="normal-case font-normal tracking-normal" style={{ color: "var(--c-text-4)" }}>(optional)</span>
-              </label>
-              <textarea
-                placeholder="Audience, tone, key point, story you want to tell, data you have…"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={isGeneratingAngles || isResearching}
-                rows={3}
-                className="w-full text-[14px] rounded-[6px] px-4 py-3 transition-all resize-none disabled:opacity-50 focus:outline-none"
-                style={{
-                  background: "var(--c-elevated)",
-                  border: "1px solid var(--c-border)",
-                  color: "var(--c-text)",
-                  boxShadow: "rgba(0,0,0,0.1) 0px 0px 0px 1px inset",
-                }}
-              />
-            </div>
+            {!referencePost && (
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--c-text-3)" }}>
+                  Notes <span className="normal-case font-normal tracking-normal" style={{ color: "var(--c-text-4)" }}>(optional)</span>
+                </label>
+                <textarea
+                  placeholder="Audience, tone, key point, story you want to tell, data you have…"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  disabled={isGeneratingAngles || isResearching}
+                  rows={3}
+                  className="w-full text-[14px] rounded-[6px] px-4 py-3 transition-all resize-none disabled:opacity-50 focus:outline-none"
+                  style={{
+                    background: "var(--c-elevated)",
+                    border: "1px solid var(--c-border)",
+                    color: "var(--c-text)",
+                    boxShadow: "rgba(0,0,0,0.1) 0px 0px 0px 1px inset",
+                  }}
+                />
+              </div>
+            )}
             {referencePost && (
               <div
                 className="flex items-start justify-between gap-3 p-3 rounded-[6px]"
@@ -842,7 +927,43 @@ export function PostEditor({
               </div>
             )}
 
-            {isResearching ? (
+            {referencePost ? (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await handleRunResearch("deep")
+                    if (res) handlePickAngle(undefined, res.sources)
+                  }}
+                  disabled={isResearching || isGeneratingPost || !topic.trim()}
+                  className="flex flex-col items-center justify-center p-4 border rounded-[6px] cursor-pointer disabled:opacity-40 transition-all font-semibold hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                  style={{
+                    borderColor: "var(--c-border)",
+                    background: "var(--c-elevated)",
+                    color: "var(--c-text)",
+                  }}
+                >
+                  {isResearching ? (
+                    <><Loader2 className="w-5 h-5 animate-spin mb-1 text-[var(--c-text-3)]" /><span className="text-[13px] font-bold">Researching...</span></>
+                  ) : (
+                    <><span className="text-[13px] font-bold">Deep Research</span><span className="text-[10.5px] opacity-70 mt-1 font-normal">Fetch facts then write</span></>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePickAngle()}
+                  disabled={isResearching || isGeneratingPost || !topic.trim()}
+                  className="flex flex-col items-center justify-center p-4 rounded-[6px] cursor-pointer disabled:opacity-40 transition-all font-semibold hover:opacity-90"
+                  style={{
+                    background: "var(--c-accent)",
+                    color: "var(--c-accent-fg)",
+                  }}
+                >
+                  <span className="text-[13px] font-bold">Write Directly</span>
+                  <span className="text-[10.5px] opacity-80 mt-1 font-normal">Use provided structure</span>
+                </button>
+              </div>
+            ) : isResearching ? (
               <div
                 className="flex flex-col items-center justify-center py-6 px-4 space-y-2 border border-dashed rounded-[6px]"
                 style={{
@@ -1093,11 +1214,18 @@ export function PostEditor({
           </div>
         </div>
       ) : (
-        <>
+        <div ref={editorContainerRef} className="flex-1 flex flex-col md:flex-row overflow-hidden relative min-h-0">
           {/* ── Zone 1: Textarea + version strip ─────────────── */}
           <div
             className={`flex-col ${activeSubTab === "chat" ? "hidden md:flex" : "flex flex-1 md:flex-initial"}`}
-            style={activeSubTab ? { flex: "1 1 auto" } : { flex: "0 0 58%" }}
+            style={!isMobile && !activeSubTab ? {
+              width: `${canvasWidth}%`,
+              flex: "none",
+            } : activeSubTab ? {
+              flex: "1 1 auto"
+            } : {
+              flex: "0 0 58%"
+            }}
           >
 
             {/* "Not on latest" banner */}
@@ -1158,10 +1286,30 @@ export function PostEditor({
             </div>
           </div>
 
+          {/* Draggable Divider Handle between Canvas and Chat */}
+          {!isMobile && !activeSubTab && (
+            <div
+              onMouseDown={handleCanvasResizeStart}
+              className="hidden md:block w-[7px] -mx-[3.5px] z-30 cursor-col-resize hover:bg-[var(--c-accent)] transition-colors relative self-stretch"
+              title="Drag to resize panels"
+            >
+              <div
+                className="absolute inset-y-0 left-[3px] w-[1px] pointer-events-none"
+                style={{ background: "var(--c-border)" }}
+              />
+            </div>
+          )}
+
           {/* ── Zone 2: Chat ──────────────────────────────────── */}
           <div
             className={`flex-col min-h-0 ${activeSubTab === "editor" ? "hidden md:flex" : "flex flex-1 md:flex-initial"}`}
-            style={activeSubTab ? { flex: "1 1 auto" } : { flex: "1 1 42%" }}
+            style={!isMobile && !activeSubTab ? {
+              flex: "1 1 0%",
+            } : activeSubTab ? {
+              flex: "1 1 auto"
+            } : {
+              flex: "1 1 42%"
+            }}
           >
             <RefineChat
               messages={chatMessages}
@@ -1172,7 +1320,7 @@ export function PostEditor({
               draft={activeDraft}
             />
           </div>
-        </>
+        </div>
       )}
     </div>
   )

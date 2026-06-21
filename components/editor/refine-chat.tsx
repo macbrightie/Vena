@@ -10,18 +10,19 @@ export interface ChatMessage {
   text: string
   snapshot?: string
   timestamp: Date
+  variations?: Array<{ label: string; content: string }>
 }
 
 interface RefineChatProps {
   messages: ChatMessage[]
   onSend: (instruction: string) => void
-  onRestore: (snapshot: string) => void
+  onRestore: (snapshot: string, label?: string) => void
   onHoverVersion?: (content: string | null) => void
   isSending: boolean
   draft: string
 }
 
-export function RefineChat({ messages, onSend, onRestore, onHoverVersion, isSending }: RefineChatProps) {
+export function RefineChat({ messages, onSend, onRestore, onHoverVersion, isSending, draft }: RefineChatProps) {
   const [input, setInput] = React.useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -110,7 +111,7 @@ export function RefineChat({ messages, onSend, onRestore, onHoverVersion, isSend
                     onMouseLeave={() => onHoverVersion?.(null)}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="text-[12px] text-[#27a644] font-semibold mb-0.5 flex items-center gap-1">
                           <span>✓</span> Done
                         </p>
@@ -138,7 +139,53 @@ export function RefineChat({ messages, onSend, onRestore, onHoverVersion, isSend
                         </button>
                       )}
                     </div>
-                    <p className="text-[10px] mt-2" style={{ color: "var(--c-text-4)" }}>
+
+                    {/* variations options container */}
+                    {msg.variations && msg.variations.length > 0 && (
+                      <div className="mt-3.5 pt-3.5 border-t border-dashed space-y-2.5" style={{ borderColor: "var(--c-border)" }}>
+                        <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--c-text-3)" }}>
+                          Tap to select a Playbook Option:
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {msg.variations.map((v, idx) => {
+                            const isApplied = draft.trim() === v.content.trim()
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => onRestore(v.content, v.label)}
+                                onMouseEnter={() => onHoverVersion?.(v.content)}
+                                onMouseLeave={() => onHoverVersion?.(null)}
+                                className="flex flex-col text-left p-2.5 rounded-[6px] border transition-all cursor-pointer text-[12px] group/item"
+                                style={{
+                                  background: isApplied ? "var(--c-overlay)" : "var(--c-bg)",
+                                  borderColor: isApplied ? "var(--c-accent)" : "var(--c-border)",
+                                }}
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="font-semibold" style={{ color: isApplied ? "var(--c-accent)" : "var(--c-text)" }}>
+                                    {v.label}
+                                  </span>
+                                  {isApplied ? (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]" style={{ background: "rgba(228, 242, 34, 0.1)", color: "var(--c-accent)" }}>
+                                      Active
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-medium opacity-0 group-hover/item:opacity-100 transition-opacity" style={{ color: "var(--c-text-3)" }}>
+                                      Apply Option
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] mt-1.5 line-clamp-2 leading-relaxed" style={{ color: "var(--c-text-3)" }}>
+                                  {v.content.slice(0, 110)}{v.content.length > 110 ? "…" : ""}
+                                </p>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] mt-2.5" style={{ color: "var(--c-text-4)" }}>
                       {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
@@ -147,7 +194,7 @@ export function RefineChat({ messages, onSend, onRestore, onHoverVersion, isSend
             </div>
           ))
         )}
- 
+
         {isSending && (
           <div className="flex items-start gap-2.5 animate-fade-in">
             <div

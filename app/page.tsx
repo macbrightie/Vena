@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { ResearchPanel } from "@/components/research/research-panel"
 import { PostEditor } from "@/components/editor/post-editor"
 import { LinkedInPreview } from "@/components/preview/linkedin-preview"
@@ -34,6 +34,41 @@ export default function VenaApp() {
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop")
   const [activeResearchQuery, setActiveResearchQuery] = useState("")
   const [activeWriteTopic, setActiveWriteTopic] = useState("")
+  const [workspaceWidth, setWorkspaceWidth] = useState(60)
+  const [isMobile, setIsMobile] = useState(false)
+  const isDraggingRef = useRef(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  const handleWorkspaceResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const widthPct = (moveEvent.clientX / window.innerWidth) * 100
+      const clampedPct = Math.max(30, Math.min(75, widthPct))
+      setWorkspaceWidth(clampedPct)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+  }
 
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab)
@@ -365,7 +400,13 @@ export default function VenaApp() {
                 className={`flex-col overflow-hidden ${
                   writeSubTab === "preview" ? "hidden md:flex" : "flex flex-1 min-w-0"
                 }`}
-                style={{ borderRight: "1px solid var(--c-border)" }}
+                style={!isMobile ? {
+                  width: writeSubTab === "preview" ? "0%" : `${workspaceWidth}%`,
+                  flex: "none",
+                  borderRight: "1px solid var(--c-border)"
+                } : {
+                  borderRight: "1px solid var(--c-border)"
+                }}
               >
                 <PostEditor
                   onDraftChange={() => {}}
@@ -379,12 +420,32 @@ export default function VenaApp() {
                 />
               </div>
 
+              {/* Draggable Divider Handle (Desktop Only) */}
+              {writeSubTab !== "preview" && (
+                <div
+                  onMouseDown={handleWorkspaceResizeStart}
+                  className="hidden md:block w-[7px] -mx-[3.5px] z-30 cursor-col-resize hover:bg-[var(--c-accent)] transition-colors relative self-stretch"
+                  title="Drag to resize columns"
+                >
+                  <div
+                    className="absolute inset-y-0 left-[3px] w-[1px] pointer-events-none"
+                    style={{ background: "var(--c-border)" }}
+                  />
+                </div>
+              )}
+
               {/* Preview Column */}
               <div
                 className={`flex-col overflow-hidden ${
                   writeSubTab === "preview" ? "flex flex-1 min-w-0" : "hidden md:flex"
                 }`}
-                style={{ background: "var(--c-surface)" }}
+                style={!isMobile ? {
+                  background: "var(--c-surface)",
+                  flex: "1 1 0%",
+                  width: writeSubTab === "preview" ? "100%" : "auto"
+                } : {
+                  background: "var(--c-surface)"
+                }}
               >
                 <div
                   className="px-5 py-2.5 shrink-0 flex items-center justify-between"
