@@ -62,6 +62,8 @@ ${REFINE_SYSTEM_PROMPT}
 ${playbookContent}
 `.trim()
 
+    const wantsVariations = /(hook|cta|call to action|rehook|variations|options)/i.test(instruction);
+
     const userMessage = [
       voiceContext?.trim()
         ? `VOICE REFERENCE DOCUMENTS (study this style):\n${voiceContext}\n`
@@ -72,32 +74,37 @@ ${playbookContent}
       `CURRENT DRAFT:\n${currentContent}`,
       `\nCHANGE REQUEST: ${instruction}`,
       `\nINSTRUCTIONS FOR REVISION:
-1/ Analyze the change request.
-2/ If it refers to changing or improving the hook, CTA, or rehook:
-   - Search the provided PLAYBOOK guides for the specific rules (e.g., Movie Preview hook structure: Cast/Setting/Genre, Story, Conflict, and Director's Cut; or bucket-based CTA formats) and apply them strictly.
-   - You MUST generate exactly 3 distinct variations of the post applying different styles/frameworks from the PLAYBOOK for that specific hook/CTA/rehook.
-   - Return them inside a "variations" JSON array of objects, each containing:
-     * "label": A short, clear label explaining the playbook style used (e.g. "Option 1: Movie Preview Hook", "Option 2: Counter-Intuitive Hook").
-     * "content": The FULL, complete updated post text with that specific option applied.
-3/ Study "MY VAULT POSTS" to match the user's natural pacing, length, formatting, and style.
-4/ Maintain a direct, warm, active, and personal tone.
-5/ Return a JSON object matching this schema:
+1/ Analyze the change request and update the post accordingly.
+2/ Study "MY VAULT POSTS" to match the user's natural pacing, length, formatting, and style.
+3/ Maintain a direct, warm, active, and personal tone.
+4/ Return a JSON object matching this schema:
    {
      "content": "the default or best version of the full post",
-     "summary": "a brief explanation of changes",
+     "summary": "a brief explanation of changes"${wantsVariations ? `,
      "variations": [
        { "label": "Short label", "content": "Full post content" },
        ...
-     ]
-   }
-   If the change request is NOT about a hook, CTA, or rehook, the "variations" field should be omitted or returned as an empty array.`,
-    ].filter(Boolean).join("\n")
+     ]` : ""}
+   }`
+    ];
+
+    if (wantsVariations) {
+      userMessage.push(`\nSPECIAL REQUEST FOR VARIATIONS:
+Because the user mentioned 'hook', 'CTA', or requested options, you MUST:
+- Search the provided PLAYBOOK guides for the specific rules (e.g., Movie Preview hook structure or bucket-based CTA formats) and apply them strictly.
+- Generate exactly 3 distinct variations of the post applying different styles/frameworks from the PLAYBOOK for that specific hook/CTA/rehook.
+- Return them inside the "variations" JSON array.`);
+    } else {
+      userMessage.push(`\nDO NOT generate any "variations". If the JSON schema requires it, omit it or return an empty array.`);
+    }
+
+    const finalUserMessage = userMessage.filter(Boolean).join("\n")
 
     const completion = await openai.chat.completions.create({
       model: MODEL,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
+        { role: "user", content: finalUserMessage },
       ],
       temperature: 0.6,
       response_format: { type: "json_object" },
